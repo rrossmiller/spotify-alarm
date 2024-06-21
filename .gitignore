@@ -1,0 +1,9 @@
+dat/
+*.db
+target/
+.vscode
+*.log
+pid.sh
+is-alive.sh
+.spotify_cache
+alarms.txt
