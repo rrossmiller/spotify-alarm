@@ -1,63 +1,101 @@
-use crate::util::get_home_path;
-use chrono::prelude::*;
-use std::{fs, process::exit};
-use tokio::time::{sleep, Duration};
-mod alarm;
-mod spotify;
-mod util;
+use librespot::{
+    connect::{ConnectConfig, LoadRequest, LoadRequestOptions, Spirc},
+    core::{
+        authentication::Credentials, cache::Cache, config::SessionConfig, session::Session, Error,
+        SpotifyId,
+    },
+    metadata::{Metadata, Playlist, Track},
+    playback::{
+        audio_backend,
+        config::{AudioFormat, PlayerConfig},
+        mixer::{self, MixerConfig},
+        player::Player,
+    },
+};
+use log::LevelFilter;
+use rand::seq::IteratorRandom;
 
-const ALARMS_FILE_NAME: &str = "alarms.txt";
+const CACHE: &str = ".cache";
+const CACHE_FILES: &str = ".cache/files";
 
 #[tokio::main]
-async fn main() {
-    let mut alarms_file = get_home_path().unwrap();
-    alarms_file.push(ALARMS_FILE_NAME);
+async fn main() -> Result<(), Error> {
+    let mut rng = rand::rng();
+    env_logger::builder()
+        .filter_module("librespot", LevelFilter::Debug)
+        .init();
 
-    // check that the file exists
-    if let Err(_) = fs::metadata(&alarms_file) {
-        eprintln!(
-            "\n{} didn't exist. Please populate it.\nEx: Time Days Desc\n6:00 M,T,W,Th,F,S,Su My first alarm",
-            alarms_file.to_str().unwrap()
-        );
+    let session_config = SessionConfig::default();
+    let player_config = PlayerConfig::default();
+    let audio_format = AudioFormat::default();
+    let connect_config = ConnectConfig::default();
+    let mixer_config = MixerConfig::default();
+    let request_options = LoadRequestOptions::default();
 
-        fs::write(alarms_file, "").expect("Unable to write file");
-        exit(1);
-    }
+    let sink_builder = audio_backend::find(None).unwrap();
+    let mixer_builder = mixer::find(None).unwrap();
 
-    let mut first = true;
-    let mut alarms = vec![];
-    loop {
-        // get the alarms from the file
-        let f = fs::read_to_string(&alarms_file).expect(
-            format!(
-                "There was a problem reading {}",
-                alarms_file.to_str().unwrap()
+    let cache = Cache::new(Some(CACHE), Some(CACHE), Some(CACHE_FILES), None)?;
+    let credentials = cache
+        .credentials()
+        .ok_or(Error::unavailable("credentials not cached"))
+        .or_else(|_| {
+            librespot::oauth::OAuthClientBuilder::new(
+                &session_config.client_id,
+                "http://127.0.0.1:8898/login",
+                vec!["streaming"],
             )
-            .as_str(),
-        );
-        let my_alarms = alarm::get_alarms(f.as_str()).unwrap();
+            .open_in_browser()
+            .build()?
+            .get_access_token()
+            .map(|t| Credentials::with_access_token(t.access_token))
+        })?;
 
-        // figure out which alarm should be next -- specifically which alarms should run today and
-        // which alarms have already run (merge current state with new state)
-        let time = Local::now();
-        alarms = alarm::get_valid_alarms(my_alarms, alarms, time);
-        if first {
-            first = false;
-            for a in alarms.iter() {
-                println!("{:?}", a);
-            }
-            println!();
-        }
+    let session = Session::new(session_config, Some(cache));
+    let mixer = mixer_builder(mixer_config)?;
 
-        // check if any alarms need to be playing
-        for a in alarms.iter_mut() {
-            if a.should_play(time) {
-                println!("> {:?}", a);
-                println!("@ {:?}", time);
-                a.played = true;
-                spotify::play_alarm().await;
-            }
-        }
-        sleep(Duration::from_secs(1)).await;
+    let player = Player::new(
+        player_config,
+        session.clone(),
+        mixer.get_soft_volume(),
+        move || sink_builder(None, audio_format),
+    );
+
+    let (spirc, spirc_task) =
+        Spirc::new(connect_config, session.clone(), credentials, player, mixer).await?;
+
+    // get playlist
+    let plist_uri = SpotifyId::from_uri("spotify:playlist:2aBMj4vGrpxavecIWQtcc4").unwrap();
+    let plist = Playlist::get(&session, &plist_uri).await.unwrap();
+    println!("{:?}", plist);
+    for track_id in plist.tracks() {
+        let plist_track = Track::get(&session, track_id).await.unwrap();
+        println!("track: {} ", plist_track.name);
     }
+
+    // these calls can be seen as "queued"
+    spirc.activate()?;
+
+    // spirc.load(LoadRequest::from_tracks(
+    //     plist.tracks().map(|e| e.to_uri().unwrap()).collect(),
+    //     request_options,
+    // ));
+
+    // spirc.load(LoadRequest::from_context_uri(
+    //     format!("spotify:user:{}:collection", session.username()),
+    //     request_options,
+    // ))?;
+    let track = *plist.tracks().choose(&mut rng).unwrap();
+    spirc
+        .load(LoadRequest::from_context_uri(
+            track.to_uri().unwrap(),
+            request_options,
+        ))
+        .unwrap();
+    spirc.play()?;
+
+    // starting the connect device and processing the previously "queued" calls
+    spirc_task.await;
+
+    Ok(())
 }

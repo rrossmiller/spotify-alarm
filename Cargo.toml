@@ -6,11 +6,15 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-librespot = "0.4.2"
-tokio = { version = "1.35.1" }
-rand = '0.8.5'
-chrono = '0.4.31'
-home = "0.5.9"
+# librespot = "0.6.0"
+librespot = {git="https://github.com/librespot-org/librespot.git", branch='dev'}
+env_logger =  { version = "0.11.2", default-features = false, features = ["color", "humantime", "auto-color"] }
+tokio = { version = "1.47.1" }
+rand = '0.9.2'
+chrono = '0.4.41'
+home = "0.5.11"
+futures-util = { version = "0.3.31", default-features = false }
+log = "0.4"
 
 ## make it SMALL
 # [profile.release]
