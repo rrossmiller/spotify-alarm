@@ -460,7 +460,7 @@ dependencies = [
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
- "windows 0.54.0",
+ "windows",
 ]
 
 [[package]]
@@ -725,9 +725,9 @@ checksum = "42703706b716c37f96a77aea830392ad231f44c9e9a67872fa5548707e11b11c"
 
 [[package]]
 name = "futures-channel"
-version = "0.3.30"
+version = "0.3.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eac8f7d7865dcb88bd4373ab671c8cf4508703796caa2b1985a9ca867b3fcb78"
+checksum = "2dff15bf788c671c1934e366d07e30c1814a8ef514e1af724a602e8a2fbe1b10"
 dependencies = [
  "futures-core",
 ]
@@ -1522,7 +1522,7 @@ dependencies = [
 [[package]]
 name = "librespot"
 version = "0.6.0-dev"
-source = "git+https://github.com/librespot-org/librespot.git?branch=dev#be37402421167ec3721aa7f6fd1103851475517b"
+source = "git+https://github.com/librespot-org/librespot.git?rev=be37402421167ec3721aa7f6fd1103851475517b#be37402421167ec3721aa7f6fd1103851475517b"
 dependencies = [
  "data-encoding",
  "env_logger",
@@ -1539,7 +1539,7 @@ dependencies = [
  "log",
  "sha1",
  "sysinfo",
- "thiserror 2.0.12",
+ "thiserror 2.0.14",
  "tokio",
  "url",
 ]
@@ -1547,7 +1547,7 @@ dependencies = [
 [[package]]
 name = "librespot-audio"
 version = "0.6.0-dev"
-source = "git+https://github.com/librespot-org/librespot.git?branch=dev#be37402421167ec3721aa7f6fd1103851475517b"
+source = "git+https://github.com/librespot-org/librespot.git?rev=be37402421167ec3721aa7f6fd1103851475517b#be37402421167ec3721aa7f6fd1103851475517b"
 dependencies = [
  "aes",
  "bytes",
@@ -1560,14 +1560,14 @@ dependencies = [
  "log",
  "parking_lot",
  "tempfile",
- "thiserror 2.0.12",
+ "thiserror 2.0.14",
  "tokio",
 ]
 
 [[package]]
 name = "librespot-connect"
 version = "0.6.0-dev"
-source = "git+https://github.com/librespot-org/librespot.git?branch=dev#be37402421167ec3721aa7f6fd1103851475517b"
+source = "git+https://github.com/librespot-org/librespot.git?rev=be37402421167ec3721aa7f6fd1103851475517b#be37402421167ec3721aa7f6fd1103851475517b"
 dependencies = [
  "futures-util",
  "librespot-core",
@@ -1577,7 +1577,7 @@ dependencies = [
  "protobuf",
  "rand 0.8.5",
  "serde_json",
- "thiserror 2.0.12",
+ "thiserror 2.0.14",
  "tokio",
  "tokio-stream",
  "uuid",
@@ -1586,7 +1586,7 @@ dependencies = [
 [[package]]
 name = "librespot-core"
 version = "0.6.0-dev"
-source = "git+https://github.com/librespot-org/librespot.git?branch=dev#be37402421167ec3721aa7f6fd1103851475517b"
+source = "git+https://github.com/librespot-org/librespot.git?rev=be37402421167ec3721aa7f6fd1103851475517b#be37402421167ec3721aa7f6fd1103851475517b"
 dependencies = [
  "aes",
  "base64 0.22.1",
@@ -1629,7 +1629,7 @@ dependencies = [
  "sha1",
  "shannon",
  "sysinfo",
- "thiserror 2.0.12",
+ "thiserror 2.0.14",
  "time",
  "tokio",
  "tokio-stream",
@@ -1643,7 +1643,7 @@ dependencies = [
 [[package]]
 name = "librespot-discovery"
 version = "0.6.0-dev"
-source = "git+https://github.com/librespot-org/librespot.git?branch=dev#be37402421167ec3721aa7f6fd1103851475517b"
+source = "git+https://github.com/librespot-org/librespot.git?rev=be37402421167ec3721aa7f6fd1103851475517b#be37402421167ec3721aa7f6fd1103851475517b"
 dependencies = [
  "aes",
  "base64 0.22.1",
@@ -1663,14 +1663,14 @@ dependencies = [
  "serde_json",
  "serde_repr",
  "sha1",
- "thiserror 2.0.12",
+ "thiserror 2.0.14",
  "tokio",
 ]
 
 [[package]]
 name = "librespot-metadata"
 version = "0.6.0-dev"
-source = "git+https://github.com/librespot-org/librespot.git?branch=dev#be37402421167ec3721aa7f6fd1103851475517b"
+source = "git+https://github.com/librespot-org/librespot.git?rev=be37402421167ec3721aa7f6fd1103851475517b#be37402421167ec3721aa7f6fd1103851475517b"
 dependencies = [
  "async-trait",
  "bytes",
@@ -1680,26 +1680,26 @@ dependencies = [
  "protobuf",
  "serde",
  "serde_json",
- "thiserror 2.0.12",
+ "thiserror 2.0.14",
  "uuid",
 ]
 
 [[package]]
 name = "librespot-oauth"
 version = "0.6.0-dev"
-source = "git+https://github.com/librespot-org/librespot.git?branch=dev#be37402421167ec3721aa7f6fd1103851475517b"
+source = "git+https://github.com/librespot-org/librespot.git?rev=be37402421167ec3721aa7f6fd1103851475517b#be37402421167ec3721aa7f6fd1103851475517b"
 dependencies = [
  "log",
  "oauth2",
  "open",
- "thiserror 2.0.12",
+ "thiserror 2.0.14",
  "url",
 ]
 
 [[package]]
 name = "librespot-playback"
 version = "0.6.0-dev"
-source = "git+https://github.com/librespot-org/librespot.git?branch=dev#be37402421167ec3721aa7f6fd1103851475517b"
+source = "git+https://github.com/librespot-org/librespot.git?rev=be37402421167ec3721aa7f6fd1103851475517b#be37402421167ec3721aa7f6fd1103851475517b"
 dependencies = [
  "cpal",
  "futures-util",
@@ -1714,7 +1714,7 @@ dependencies = [
  "rodio",
  "shell-words",
  "symphonia",
- "thiserror 2.0.12",
+ "thiserror 2.0.14",
  "tokio",
  "zerocopy",
 ]
@@ -1722,7 +1722,7 @@ dependencies = [
 [[package]]
 name = "librespot-protocol"
 version = "0.6.0-dev"
-source = "git+https://github.com/librespot-org/librespot.git?branch=dev#be37402421167ec3721aa7f6fd1103851475517b"
+source = "git+https://github.com/librespot-org/librespot.git?rev=be37402421167ec3721aa7f6fd1103851475517b#be37402421167ec3721aa7f6fd1103851475517b"
 dependencies = [
  "protobuf",
  "protobuf-codegen",
@@ -3093,7 +3093,7 @@ dependencies = [
  "libc",
  "memchr",
  "ntapi",
- "windows 0.57.0",
+ "windows",
 ]
 
 [[package]]
@@ -3141,11 +3141,11 @@ dependencies = [
 
 [[package]]
 name = "thiserror"
-version = "2.0.12"
+version = "2.0.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "567b8a2dae586314f7be2a752ec7474332959c6460e02bde30d702a66d488708"
+checksum = "0b0949c3a6c842cbde3f1686d6eea5a010516deb7085f79db747562d4102f41e"
 dependencies = [
- "thiserror-impl 2.0.12",
+ "thiserror-impl 2.0.14",
 ]
 
 [[package]]
@@ -3161,9 +3161,9 @@ dependencies = [
 
 [[package]]
 name = "thiserror-impl"
-version = "2.0.12"
+version = "2.0.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7f7cf42b4507d8ea322120659672cf1b9dbb93f8f2d4ecfd6e51350ff5b17a1d"
+checksum = "cc5b44b4ab9c2fdd0e0512e6bece8388e214c0749f5862b114cc5b7a25daf227"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3717,16 +3717,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "windows"
-version = "0.57.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "12342cb4d8e3b046f3d80effd474a7a02447231330ef77d71daa6fbc40681143"
-dependencies = [
- "windows-core 0.57.0",
- "windows-targets 0.52.6",
-]
-
-[[package]]
 name = "windows-core"
 version = "0.52.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3743,40 +3733,6 @@ checksum = "12661b9c89351d684a50a8a643ce5f608e20243b9fb84687800163429f161d65"
 dependencies = [
  "windows-result",
  "windows-targets 0.52.6",
-]
-
-[[package]]
-name = "windows-core"
-version = "0.57.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d2ed2439a290666cd67ecce2b0ffaad89c2a56b976b736e6ece670297897832d"
-dependencies = [
- "windows-implement",
- "windows-interface",
- "windows-result",
- "windows-targets 0.52.6",
-]
-
-[[package]]
-name = "windows-implement"
-version = "0.57.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9107ddc059d5b6fbfbffdfa7a7fe3e22a226def0b2608f72e9d552763d3e1ad7"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
-name = "windows-interface"
-version = "0.57.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "29bee4b38ea3cde66011baa44dba677c432a78593e202392d1e9070cf2a7fca7"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
 ]
 
 [[package]]

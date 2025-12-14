@@ -22,7 +22,7 @@ const CACHE_FILES: &str = ".cache/files";
 async fn main() -> Result<(), Error> {
     let mut rng = rand::rng();
     env_logger::builder()
-        .filter_module("librespot", LevelFilter::Debug)
+        .filter_module("librespot", LevelFilter::Info)
         .init();
 
     let session_config = SessionConfig::default();
@@ -67,11 +67,11 @@ async fn main() -> Result<(), Error> {
     // get playlist
     let plist_uri = SpotifyId::from_uri("spotify:playlist:2aBMj4vGrpxavecIWQtcc4").unwrap();
     let plist = Playlist::get(&session, &plist_uri).await.unwrap();
-    println!("{:?}", plist);
-    for track_id in plist.tracks() {
-        let plist_track = Track::get(&session, track_id).await.unwrap();
-        println!("track: {} ", plist_track.name);
-    }
+    // for track_id in plist.tracks() {
+    //     println!("{:?}",track_id);
+    //     let plist_track = Track::get(&session, track_id).await.unwrap();
+    //     println!("track: {} ", plist_track.name);
+    // }
 
     // these calls can be seen as "queued"
     spirc.activate()?;
