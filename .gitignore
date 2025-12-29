@@ -6,5 +6,5 @@ target/
 pid.sh
 is-alive.sh
 .spotify_cache
-alarms.txt
+alarms.json
 .cache

@@ -1,120 +1,106 @@
-use librespot::connect::spirc::Spirc;
-use librespot::core::cache::Cache;
-use librespot::discovery::DeviceType;
-use librespot::playback::mixer::softmixer::SoftMixer;
-use librespot::playback::mixer::Mixer;
-use rand::seq::SliceRandom;
-use tokio::join;
+use std::future::Future;
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
-use std::env;
+use librespot::{
+    connect::{ConnectConfig, LoadRequest, LoadRequestOptions, Spirc},
+    core::{
+        authentication::Credentials, cache::Cache, config::SessionConfig, session::Session, Error,
+        SpotifyUri,
+    },
+    metadata::{Metadata, Playlist},
+    oauth,
+    playback::{
+        audio_backend,
+        config::{AudioFormat, PlayerConfig},
+        mixer::{self, MixerConfig},
+        player::Player,
+    },
+};
+use rand::seq::IteratorRandom;
 
-use librespot::core::authentication::Credentials;
-use librespot::core::config::{ConnectConfig, SessionConfig};
-use librespot::core::session::Session;
-use librespot::core::spotify_id::SpotifyId;
-use librespot::metadata::{Metadata, Playlist, Track};
-use librespot::playback::audio_backend;
-use librespot::playback::config::{AudioFormat, PlayerConfig};
-use librespot::playback::mixer::{MixerConfig, NoOpVolume};
-use librespot::playback::player::{Player, PlayerEvent};
-
-use crate::util::get_home_path;
-
-const CREDS_PATH: &str = "creds";
-const VOL_PATH: &str = "vol";
-const AUDIO_PATH: &str = "audio";
-pub async fn play_alarm() {
-    let home_path = get_home_path().expect("Unable to get your home directory");
-    let cache = Cache::new(
-        Some(format!("{}/{}", home_path.to_str().unwrap(), CREDS_PATH)),
-        Some(format!("{}/{}", home_path.to_str().unwrap(), VOL_PATH)),
-        Some(format!("{}/{}", home_path.to_str().unwrap(), AUDIO_PATH)),
-        None,
-    )
-    .unwrap();
-
-    let credentials = match cache.credentials() {
-        Some(c) => {
-            println!("using saved credentials");
-            c
-        }
-        None => {
-            let args: Vec<_> = env::args().collect();
-            if args.len() != 3 {
-                eprintln!("Usage: {} USERNAME PASSWORD", args[0]);
-                return;
-            }
-            let cred = Credentials::with_password(&args[1], &args[2]);
-
-            cache.save_credentials(&cred);
-            cred
-        }
-    };
-
-    let mut rng = rand::thread_rng();
+const CACHE: &str = ".cache";
+const CACHE_FILES: &str = ".cache/files";
+pub async fn init() -> Result<(Session, Arc<Mutex<Spirc>>, impl Future<Output = ()>), Error> {
     let session_config = SessionConfig::default();
     let player_config = PlayerConfig::default();
     let audio_format = AudioFormat::default();
-    let backend = audio_backend::find(None).unwrap();
-    let connect_config = ConnectConfig {
-        name: "PiAlarm".to_string(),
-        device_type: DeviceType::default(),
-        initial_volume: Some(100),
-        has_volume_ctrl: false,
-        autoplay: false,
-    };
+    let connect_config = ConnectConfig::default();
+    let mixer_config = MixerConfig::default();
 
-    println!("Connecting ..");
-    let (session, _) = Session::connect(session_config, credentials, None, false)
-        .await
-        .unwrap();
+    let sink_builder = audio_backend::find(None).unwrap();
+    let mixer_builder = mixer::find(None).unwrap();
 
-    let (mut player, mut player_event) = Player::new(
+    let cache = Cache::new(Some(CACHE), Some(CACHE), Some(CACHE_FILES), None)?;
+    let credentials = cache
+        .credentials()
+        .ok_or(Error::unavailable("credentials not cached"))
+        .or_else(|_| {
+            oauth::OAuthClientBuilder::new(
+                &session_config.client_id,
+                "http://127.0.0.1:8898/login",
+                vec!["streaming"],
+            )
+            .open_in_browser()
+            .build()?
+            .get_access_token()
+            .map(|t| Credentials::with_access_token(t.access_token))
+        })?;
+
+    let session = Session::new(session_config, Some(cache));
+    let mixer = mixer_builder(mixer_config)?;
+
+    let player = Player::new(
         player_config,
         session.clone(),
-        Box::new(NoOpVolume),
-        move || backend(None, audio_format),
+        mixer.get_soft_volume(),
+        move || sink_builder(None, audio_format),
     );
 
-    // pick a random track from the alarm playlist
-    let plist = "spotify:playlist:2aBMj4vGrpxavecIWQtcc4"; // alarm
-    let plist_uri = SpotifyId::from_uri(plist).unwrap();
+    let (spirc, spirc_task) =
+        Spirc::new(connect_config, session.clone(), credentials, player, mixer).await?;
 
-    let plist = Playlist::get(&session, plist_uri).await.unwrap();
-    let track = *plist.tracks.choose(&mut rng).unwrap();
-    let print_track = Track::get(&session, track).await.unwrap();
-    println!("{}", print_track.name);
+    return Ok((session, Arc::new(Mutex::new(spirc)), spirc_task));
+}
 
-    // https://open.spotify.com/track/5PbMSJZcNA3p2LZv7C56cm?si=d83209b036a64047
-    // let track = SpotifyId::from_base62("5PbMSJZcNA3p2LZv7C56cm").unwrap(); // 4 seconds
-    //https://open.spotify.com/track/6UCFZ9ZOFRxK8oak7MdPZu?si=e14c5c002f064429
-    // let track = SpotifyId::from_base62("6UCFZ9ZOFRxK8oak7MdPZu").unwrap(); // 20 something seconds
-    // let print_track = Track::get(&session, track).await.unwrap();
-    // println!(">>{}", print_track.name);
+pub async fn play(
+    session: Session,
+    spirc: Arc<Mutex<Spirc>>,
+) -> Result<(), Error> {
+    println!("playing alarm!");
 
-    // play the track
-    player.load(track, true, 0);
-    let (spirc, spirc_task) = Spirc::new(
-        connect_config,
-        session.clone(),
-        player,
-        Box::new(SoftMixer::open(MixerConfig::default())),
-    );
+    let request_options = LoadRequestOptions::default();
 
-    join!(spirc_task, async {
-        println!("Playing...");
-        spirc.play();
+    // get playlist
+    // let uri = "13NGKvpadSMzN73aFnFFKT"; // 150 playlist
+    let uri = "2aBMj4vGrpxavecIWQtcc4"; // alarm playlist
+    let plist_uri = SpotifyUri::from_uri(&format!("spotify:playlist:{}", uri)).unwrap();
+    let plist = Playlist::get(&session, &plist_uri).await.unwrap();
 
-        while let Some(event) = player_event.recv().await {
-            match event {
-                // end the alarm if the track stops
-                // the app will start looking for the next alarm
-                PlayerEvent::EndOfTrack { .. }
-                | PlayerEvent::Paused { .. }
-                | PlayerEvent::Stopped { .. } => spirc.shutdown(),
-                _ => {}
-            }
-        }
-        println!("Done...");
-    });
+    // Choose a random track and get its URI (ThreadRng is not Send, so we need to drop it before awaits)
+    let track_uri = {
+        let mut rng = rand::rng();
+        let track = plist.tracks().choose(&mut rng).unwrap();
+        track.to_uri().unwrap()
+    }; // RNG is dropped here
+
+    // Lock spirc for playback control
+    let spirc_guard = spirc.lock().await;
+
+    // these calls can be seen as "queued"
+    spirc_guard.activate()?;
+
+    // set volume to max
+    spirc_guard.set_volume(u16::MAX).unwrap();
+
+    spirc_guard.load(LoadRequest::from_context_uri(
+        track_uri,
+        request_options,
+    ))?;
+    spirc_guard.play()?;
+
+    // Release the lock immediately after issuing commands
+    drop(spirc_guard);
+
+    Ok(())
 }

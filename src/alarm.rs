@@ -1,143 +1,219 @@
-use chrono::{DateTime, Datelike, Local, NaiveTime, Timelike, Weekday};
+use chrono::{Datelike, Local, NaiveTime, Timelike, Weekday};
+use serde::{Deserialize, Serialize};
+use std::path::Path;
+use tokio::time::{sleep, Duration};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AlarmConfig {
+    pub alarms: Vec<Alarm>,
+    #[serde(default)]
+    pub web: WebConfig,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct WebConfig {
+    #[serde(default = "default_web_enabled")]
+    pub enabled: bool,
+    #[serde(default = "default_bind_addr")]
+    pub bind_addr: String,
+    #[serde(default = "default_port")]
+    pub port: u16,
+    pub password_hash: Option<String>,
+}
+
+fn default_web_enabled() -> bool {
+    false
+}
+
+fn default_bind_addr() -> String {
+    "127.0.0.1".to_string()
+}
+
+fn default_port() -> u16 {
+    8080
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Alarm {
-    pub desc: String,
-    pub time: NaiveTime,
-    pub days: Vec<Weekday>,
-    pub played: bool,
+    /// Alarm name/description
+    pub name: String,
+    /// Time in 24-hour format (HH:MM)
+    pub time: String,
+    /// Days of week to play alarm (Mon, Tue, Wed, Thu, Fri, Sat, Sun)
+    /// If None or empty, alarm plays every day
+    #[serde(default)]
+    pub days: Vec<String>,
+    /// Whether this alarm is enabled
+    #[serde(default = "default_enabled")]
+    pub enabled: bool,
 }
-impl PartialEq for Alarm {
-    fn eq(&self, other: &Self) -> bool {
-        self.desc == other.desc && self.time == other.time && self.days == other.days
-    }
+
+fn default_enabled() -> bool {
+    true
 }
+
 impl Alarm {
-    /// An alarm should play if it has not already been played and
-    /// its time's hour and minute are the same as the current time
-    pub fn should_play(&self, time: DateTime<Local>) -> bool {
-        if !self.played && self.time.minute() == time.minute() && self.time.hour() == time.hour() {
-            return true;
+    /// Parse the time string (HH:MM) into a NaiveTime
+    pub fn parse_time(&self) -> Result<NaiveTime, String> {
+        let parts: Vec<&str> = self.time.split(':').collect();
+        if parts.len() != 2 {
+            return Err(format!("Invalid time format: {}", self.time));
         }
-        false
+
+        let hour = parts[0]
+            .parse::<u32>()
+            .map_err(|_| format!("Invalid hour: {}", parts[0]))?;
+        let minute = parts[1]
+            .parse::<u32>()
+            .map_err(|_| format!("Invalid minute: {}", parts[1]))?;
+
+        NaiveTime::from_hms_opt(hour, minute, 0)
+            .ok_or_else(|| format!("Invalid time: {}:{}", hour, minute))
+    }
+
+    /// Check if alarm should play on the given weekday
+    fn should_play_on(&self, weekday: Weekday) -> bool {
+        if self.days.is_empty() {
+            return true; // Play every day if no days specified
+        }
+
+        let weekday_str = format!("{:?}", weekday); // "Mon", "Tue", etc.
+        self.days
+            .iter()
+            .any(|d| d.eq_ignore_ascii_case(&weekday_str) || d.eq_ignore_ascii_case(&weekday_str[..3]))
     }
 }
 
-pub fn get_alarms(f: &str) -> Result<Vec<Alarm>, String> {
-    let alarms: Vec<Alarm> = f
-        .lines()
-        .filter(|e| !e.starts_with("#")) // skip commented out alarms
-        .filter_map(|line| {
-            let spl = line.split(' ').collect::<Vec<&str>>();
+impl AlarmConfig {
+    /// Load alarm configuration from a JSON file
+    pub fn load<P: AsRef<Path>>(path: P) -> Result<Self, Box<dyn std::error::Error>> {
+        let content = std::fs::read_to_string(path)?;
+        let config: AlarmConfig = serde_json::from_str(&content)?;
+        Ok(config)
+    }
 
-            let times = spl[0]
-                .split(':')
-                .filter_map(|e| e.parse::<u32>().ok())
-                .collect::<Vec<u32>>();
-            if times.len() < 2 {
-                return None;
-            }
-            let time = chrono::NaiveTime::from_hms_opt(times[0], times[1], 0).unwrap();
-
-            let days = spl[1]
-                .split(',')
-                .filter_map(|e| to_weekday(e))
-                .collect::<Vec<Weekday>>();
-
-            let desc = spl[2..].join(" "); // everything else is the description
-            Some(Alarm {
-                desc,
-                time,
-                days,
-                played: false,
-            })
-        })
-        .collect();
-
-    return Ok(alarms);
+    /// Save alarm configuration to a JSON file
+    pub fn save<P: AsRef<Path>>(&self, path: P) -> Result<(), Box<dyn std::error::Error>> {
+        let content = serde_json::to_string_pretty(&self)?;
+        std::fs::write(path, content)?;
+        Ok(())
+    }
 }
 
-/// Get the alarms that still need to be run for today.
-pub fn get_valid_alarms(
-    new_alarms: Vec<Alarm>,
-    alarms: Vec<Alarm>,
-    time: DateTime<Local>,
-) -> Vec<Alarm> {
-    let mut alarms: Vec<Alarm> = new_alarms
-        .into_iter()
-        .filter_map(|mut a| {
-            // is the alarm valid for today?
-            if !a.days.contains(&time.weekday()) {
-                return None;
+/// Calculate seconds until the next occurrence of the given time
+fn seconds_until_time(target_time: NaiveTime) -> u64 {
+    let now = Local::now();
+    let today = now.date_naive();
+    let target_today = today.and_time(target_time);
+
+    // If target time has passed today, schedule for tomorrow
+    let target_datetime = if now.naive_local() >= target_today {
+        (today + chrono::Days::new(1)).and_time(target_time)
+    } else {
+        target_today
+    };
+
+    let duration = target_datetime
+        .and_local_timezone(Local)
+        .unwrap()
+        .signed_duration_since(now);
+    duration.num_seconds() as u64
+}
+
+/// Run the alarm scheduler
+pub async fn run_scheduler(
+    state: crate::state::SharedState,
+) -> Result<(), Box<dyn std::error::Error>> {
+    // Print initial alarm list
+    {
+        let state_guard = state.read().await;
+        println!(
+            "Starting alarm scheduler with {} alarms",
+            state_guard.config.alarms.len()
+        );
+
+        for alarm in &state_guard.config.alarms {
+            if alarm.enabled {
+                println!("  - {}: {} (days: {:?})", alarm.name, alarm.time, alarm.days);
+            } else {
+                println!("  - {}: {} [DISABLED]", alarm.name, alarm.time);
             }
-            // is the alarm in the past?
-            if a.time.hour() <= time.hour() && a.time.minute() < time.minute() {
-                return None;
+        }
+    }
+
+    // Keep track of the last minute we checked to avoid duplicate triggers
+    let mut last_checked_minute: Option<(u32, u32)> = None;
+
+    loop {
+        let now = Local::now();
+        let current_weekday = now.weekday();
+        let current_time = now.time();
+        let current_hour_minute = (current_time.hour(), current_time.minute());
+
+        // Only check alarms once per minute
+        if last_checked_minute == Some(current_hour_minute) {
+            sleep(Duration::from_secs(10)).await;
+            continue;
+        }
+
+        last_checked_minute = Some(current_hour_minute);
+
+        // Read current alarms from shared state
+        let (alarms, session, spirc) = {
+            let state_guard = state.read().await;
+            (
+                state_guard.config.alarms.clone(),
+                state_guard.session.clone(),
+                state_guard.spirc.clone(),
+            )
+        };
+
+        for alarm in &alarms {
+            if !alarm.enabled {
+                continue;
             }
-            for alrm in alarms.iter() {
-                if a == *alrm {
-                    a.played = alrm.played;
+
+            // Check if alarm should play today
+            if !alarm.should_play_on(current_weekday) {
+                continue;
+            }
+
+            // Parse alarm time
+            let alarm_time = match alarm.parse_time() {
+                Ok(t) => t,
+                Err(e) => {
+                    eprintln!("Error parsing alarm time for '{}': {}", alarm.name, e);
+                    continue;
                 }
+            };
+
+            // Check if it's time to play
+            let hour_match = current_time.hour() == alarm_time.hour();
+            let minute_match = current_time.minute() == alarm_time.minute();
+
+            if hour_match && minute_match {
+                println!("\n🔔 Alarm triggered: {} at {}", alarm.name, alarm.time);
+
+                // Play the alarm (spirc is Arc<Mutex<>> now, so it's not consumed)
+                match crate::spotify::play(session.clone(), spirc.clone()).await {
+                    Ok(_) => {
+                        println!("✓ Alarm '{}' played successfully", alarm.name);
+                        // Update last trigger time in state
+                        let mut state_guard = state.write().await;
+                        state_guard.last_alarm_trigger = Some((alarm.name.clone(), now));
+                    }
+                    Err(e) => eprintln!("✗ Error playing alarm '{}': {}", alarm.name, e),
+                }
+
+                // Don't return - keep running to handle future alarms!
+                // Sleep for 61 seconds to avoid re-triggering in the same minute
+                sleep(Duration::from_secs(61)).await;
+                last_checked_minute = None; // Reset to allow next alarm to trigger
+                break; // Break inner loop but continue outer loop
             }
-            Some(a)
-        })
-        .collect();
-    alarms.sort_by(|a, b| a.time.cmp(&b.time));
-    alarms
-}
+        }
 
-fn to_weekday(d: &str) -> Option<Weekday> {
-    match d {
-        "M" => Some(Weekday::Mon),
-        "T" => Some(Weekday::Tue),
-        "W" => Some(Weekday::Wed),
-        "Th" => Some(Weekday::Thu),
-        "F" => Some(Weekday::Fri),
-        "S" => Some(Weekday::Sat),
-        "Su" => Some(Weekday::Sun),
-        _ => None,
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_get_alarms() {
-        let alarms = "06:00 M,T,W,Th,F,S,Su first alarm
-#0:asdf 
-6:17 M,T,F,S,Su this is the second alarm
-6:17 M,T,F,S,Su"
-            .to_string();
-        let alarms = get_alarms(&alarms).unwrap();
-        assert_eq!(alarms.len(), 3);
-    }
-    #[test]
-    fn alarm_equals() {
-        let alarm1 = Alarm {
-            desc: "Wake up".to_string(),
-            time: NaiveTime::from_hms_opt(8, 0, 0).unwrap(),
-            days: vec![Weekday::Mon, Weekday::Wed],
-            played: false,
-        };
-
-        let alarm2 = Alarm {
-            desc: "Wake up".to_string(),
-            time: NaiveTime::from_hms_opt(8, 0, 0).unwrap(),
-            days: vec![Weekday::Mon, Weekday::Wed],
-            played: false,
-        };
-
-        let alarm3 = Alarm {
-            desc: "Workout".to_string(),
-            time: NaiveTime::from_hms_opt(7, 0, 0).unwrap(),
-            days: vec![Weekday::Tue, Weekday::Thu],
-            played: false,
-        };
-
-        assert_eq!(alarm1, alarm2);
-        assert_ne!(alarm1, alarm3);
-        assert!(vec![alarm1.clone(), alarm2].contains(&alarm1));
+        // Check every 10 seconds
+        sleep(Duration::from_secs(10)).await;
     }
 }

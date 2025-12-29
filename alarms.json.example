@@ -1,0 +1,28 @@
+{
+  "web": {
+    "enabled": true,
+    "bind_addr": "0.0.0.0",
+    "port": 8080,
+    "password_hash": "run 'cargo run -- hash-password' to generate a hash"
+  },
+  "alarms": [
+    {
+      "name": "Weekday Morning Alarm",
+      "time": "07:00",
+      "days": ["Mon", "Tue", "Wed", "Thu", "Fri"],
+      "enabled": true
+    },
+    {
+      "name": "Weekend Alarm",
+      "time": "09:00",
+      "days": ["Sat", "Sun"],
+      "enabled": true
+    },
+    {
+      "name": "Daily Afternoon Reminder",
+      "time": "15:30",
+      "days": [],
+      "enabled": false
+    }
+  ]
+}

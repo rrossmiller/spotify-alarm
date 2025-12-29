@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spotify Alarm Manager</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        h1, h2 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            font-size: 28px;
+        }
+
+        h2 {
+            font-size: 20px;
+        }
+
+        .login-form, .alarm-form {
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 500;
+            color: #555;
+        }
+
+        input[type="text"],
+        input[type="password"],
+        input[type="time"],
+        select {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            background: #667eea;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: background 0.3s;
+        }
+
+        .btn:hover {
+            background: #5568d3;
+        }
+
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+        }
+
+        .btn-success {
+            background: #28a745;
+        }
+
+        .btn-success:hover {
+            background: #218838;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .error {
+            color: #dc3545;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+
+        .success {
+            color: #28a745;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .status-enabled {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-disabled {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .days-list {
+            font-size: 13px;
+            color: #666;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 8px;
+        }
+
+        .header-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .stat-box {
+            background: #f8f9fa;
+            padding: 16px;
+            border-radius: 8px;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #667eea;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            margin-top: 4px;
+        }
+
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #999;
+        }
+
+        .checkbox-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .checkbox-label input {
+            margin-right: 6px;
+        }
+
+        @media (max-width: 768px) {
+            table {
+                font-size: 14px;
+            }
+
+            th, td {
+                padding: 8px;
+            }
+
+            .action-buttons {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Login Screen -->
+        <div id="loginScreen" class="card">
+            <h1 style="text-align: center;">🎵 Spotify Alarm Manager</h1>
+            <div class="login-form">
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" placeholder="Enter password">
+                </div>
+                <button class="btn" onclick="login()" style="width: 100%;">Login</button>
+                <div id="loginError" class="error hidden"></div>
+            </div>
+        </div>
+
+        <!-- Main App -->
+        <div id="mainApp" class="hidden">
+            <!-- Header -->
+            <div class="card">
+                <div class="header-actions">
+                    <h1>🎵 Spotify Alarm Manager</h1>
+                    <div>
+                        <button class="btn btn-success btn-small" onclick="testAlarm()">🔊 Test Alarm</button>
+                        <button class="btn btn-secondary btn-small" onclick="logout()" style="margin-left: 8px;">Logout</button>
+                    </div>
+                </div>
+
+                <!-- Stats -->
+                <div class="stats">
+                    <div class="stat-box">
+                        <div class="stat-value" id="totalAlarms">0</div>
+                        <div class="stat-label">Total Alarms</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value" id="enabledAlarms">0</div>
+                        <div class="stat-label">Enabled Alarms</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value" id="lastTrigger">Never</div>
+                        <div class="stat-label">Last Triggered</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Alarms List -->
+            <div class="card">
+                <div class="header-actions">
+                    <h2>Alarms</h2>
+                    <button class="btn btn-success" onclick="showAddAlarmModal()">+ Add Alarm</button>
+                </div>
+
+                <table id="alarmsTable">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Time</th>
+                            <th>Days</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="alarmsBody">
+                        <!-- Alarms will be inserted here -->
+                    </tbody>
+                </table>
+
+                <div id="noAlarms" class="hidden" style="text-align: center; padding: 40px; color: #999;">
+                    No alarms configured. Click "Add Alarm" to create one.
+                </div>
+            </div>
+        </div>
+
+        <!-- Add/Edit Alarm Modal -->
+        <div id="alarmModal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 id="modalTitle">Add Alarm</h2>
+                    <button class="modal-close" onclick="closeAlarmModal()">&times;</button>
+                </div>
+
+                <div class="form-group">
+                    <label for="alarmName">Alarm Name</label>
+                    <input type="text" id="alarmName" placeholder="e.g., Morning Alarm">
+                </div>
+
+                <div class="form-group">
+                    <label for="alarmTime">Time</label>
+                    <input type="time" id="alarmTime">
+                </div>
+
+                <div class="form-group">
+                    <label>Days (leave all unchecked for every day)</label>
+                    <div class="checkbox-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" value="Mon" class="day-checkbox"> Monday
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" value="Tue" class="day-checkbox"> Tuesday
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" value="Wed" class="day-checkbox"> Wednesday
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" value="Thu" class="day-checkbox"> Thursday
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" value="Fri" class="day-checkbox"> Friday
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" value="Sat" class="day-checkbox"> Saturday
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" value="Sun" class="day-checkbox"> Sunday
+                        </label>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="alarmEnabled" checked> Enabled
+                    </label>
+                </div>
+
+                <div style="display: flex; gap: 12px;">
+                    <button class="btn" onclick="saveAlarm()" style="flex: 1;">Save</button>
+                    <button class="btn btn-secondary" onclick="closeAlarmModal()">Cancel</button>
+                </div>
+
+                <div id="modalError" class="error hidden"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let password = sessionStorage.getItem('alarm_password') || '';
+        let editingIndex = null;
+
+        // Check if already logged in
+        if (password) {
+            showMainApp();
+        }
+
+        function login() {
+            password = document.getElementById('password').value;
+            sessionStorage.setItem('alarm_password', password);
+            fetchAlarms().then(() => {
+                showMainApp();
+            }).catch(() => {
+                document.getElementById('loginError').textContent = 'Invalid password';
+                document.getElementById('loginError').classList.remove('hidden');
+                password = '';
+                sessionStorage.removeItem('alarm_password');
+            });
+        }
+
+        function logout() {
+            password = '';
+            sessionStorage.removeItem('alarm_password');
+            document.getElementById('loginScreen').classList.remove('hidden');
+            document.getElementById('mainApp').classList.add('hidden');
+        }
+
+        function showMainApp() {
+            document.getElementById('loginScreen').classList.add('hidden');
+            document.getElementById('mainApp').classList.remove('hidden');
+            loadData();
+            // Refresh data every 30 seconds
+            setInterval(loadData, 30000);
+        }
+
+        async function loadData() {
+            await Promise.all([fetchAlarms(), fetchStatus()]);
+        }
+
+        async function fetchAlarms() {
+            const response = await fetch('/api/alarms', {
+                headers: { 'X-Password': password }
+            });
+
+            if (!response.ok) throw new Error('Failed to fetch alarms');
+
+            const data = await response.json();
+            renderAlarms(data.alarms);
+        }
+
+        async function fetchStatus() {
+            const response = await fetch('/api/status', {
+                headers: { 'X-Password': password }
+            });
+
+            if (!response.ok) return;
+
+            const status = await response.json();
+            document.getElementById('totalAlarms').textContent = status.alarm_count;
+            document.getElementById('enabledAlarms').textContent = status.enabled_count;
+            document.getElementById('lastTrigger').textContent = status.last_trigger
+                ? `${status.last_trigger[0]} at ${status.last_trigger[1]}`
+                : 'Never';
+        }
+
+        function renderAlarms(alarms) {
+            const tbody = document.getElementById('alarmsBody');
+            const noAlarms = document.getElementById('noAlarms');
+
+            if (alarms.length === 0) {
+                tbody.innerHTML = '';
+                noAlarms.classList.remove('hidden');
+                return;
+            }
+
+            noAlarms.classList.add('hidden');
+            tbody.innerHTML = alarms.map((alarm, index) => `
+                <tr>
+                    <td>${alarm.name}</td>
+                    <td>${alarm.time}</td>
+                    <td class="days-list">${alarm.days.length > 0 ? alarm.days.join(', ') : 'Every day'}</td>
+                    <td>
+                        <span class="status-badge ${alarm.enabled ? 'status-enabled' : 'status-disabled'}">
+                            ${alarm.enabled ? 'Enabled' : 'Disabled'}
+                        </span>
+                    </td>
+                    <td>
+                        <div class="action-buttons">
+                            <button class="btn btn-small" onclick="toggleAlarm(${index})">
+                                ${alarm.enabled ? 'Disable' : 'Enable'}
+                            </button>
+                            <button class="btn btn-small" onclick="editAlarm(${index})">Edit</button>
+                            <button class="btn btn-danger btn-small" onclick="deleteAlarm(${index})">Delete</button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function showAddAlarmModal() {
+            editingIndex = null;
+            document.getElementById('modalTitle').textContent = 'Add Alarm';
+            document.getElementById('alarmName').value = '';
+            document.getElementById('alarmTime').value = '07:00';
+            document.querySelectorAll('.day-checkbox').forEach(cb => cb.checked = false);
+            document.getElementById('alarmEnabled').checked = true;
+            document.getElementById('alarmModal').classList.remove('hidden');
+        }
+
+        async function editAlarm(index) {
+            editingIndex = index;
+            const response = await fetch(`/api/alarms/${index}`, {
+                headers: { 'X-Password': password }
+            });
+
+            if (!response.ok) {
+                alert('Failed to load alarm');
+                return;
+            }
+
+            const alarm = await response.json();
+            document.getElementById('modalTitle').textContent = 'Edit Alarm';
+            document.getElementById('alarmName').value = alarm.name;
+            document.getElementById('alarmTime').value = alarm.time;
+            document.querySelectorAll('.day-checkbox').forEach(cb => {
+                cb.checked = alarm.days.includes(cb.value);
+            });
+            document.getElementById('alarmEnabled').checked = alarm.enabled;
+            document.getElementById('alarmModal').classList.remove('hidden');
+        }
+
+        function closeAlarmModal() {
+            document.getElementById('alarmModal').classList.add('hidden');
+            document.getElementById('modalError').classList.add('hidden');
+        }
+
+        async function saveAlarm() {
+            const name = document.getElementById('alarmName').value.trim();
+            const time = document.getElementById('alarmTime').value;
+            const days = Array.from(document.querySelectorAll('.day-checkbox:checked')).map(cb => cb.value);
+            const enabled = document.getElementById('alarmEnabled').checked;
+
+            if (!name || !time) {
+                document.getElementById('modalError').textContent = 'Please fill in all fields';
+                document.getElementById('modalError').classList.remove('hidden');
+                return;
+            }
+
+            const alarm = { name, time, days, enabled };
+
+            try {
+                let response;
+                if (editingIndex !== null) {
+                    response = await fetch(`/api/alarms/${editingIndex}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-Password': password
+                        },
+                        body: JSON.stringify(alarm)
+                    });
+                } else {
+                    response = await fetch('/api/alarms', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-Password': password
+                        },
+                        body: JSON.stringify(alarm)
+                    });
+                }
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to save alarm');
+                }
+
+                closeAlarmModal();
+                await fetchAlarms();
+            } catch (error) {
+                document.getElementById('modalError').textContent = error.message;
+                document.getElementById('modalError').classList.remove('hidden');
+            }
+        }
+
+        async function toggleAlarm(index) {
+            try {
+                const response = await fetch(`/api/alarms/${index}/toggle`, {
+                    method: 'POST',
+                    headers: { 'X-Password': password }
+                });
+
+                if (!response.ok) throw new Error('Failed to toggle alarm');
+
+                await fetchAlarms();
+            } catch (error) {
+                alert('Failed to toggle alarm: ' + error.message);
+            }
+        }
+
+        async function deleteAlarm(index) {
+            if (!confirm('Are you sure you want to delete this alarm?')) return;
+
+            try {
+                const response = await fetch(`/api/alarms/${index}`, {
+                    method: 'DELETE',
+                    headers: { 'X-Password': password }
+                });
+
+                if (!response.ok) throw new Error('Failed to delete alarm');
+
+                await fetchAlarms();
+            } catch (error) {
+                alert('Failed to delete alarm: ' + error.message);
+            }
+        }
+
+        async function testAlarm() {
+            try {
+                const response = await fetch('/api/test-alarm', {
+                    method: 'POST',
+                    headers: { 'X-Password': password }
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Test failed');
+                }
+
+                alert('Test alarm triggered! Music should start playing.');
+            } catch (error) {
+                alert('Failed to test alarm: ' + error.message);
+            }
+        }
+
+        // Handle Enter key on password input
+        document.getElementById('password').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') login();
+        });
+    </script>
+</body>
+</html>

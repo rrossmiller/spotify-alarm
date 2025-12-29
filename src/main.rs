@@ -1,101 +1,151 @@
-use librespot::{
-    connect::{ConnectConfig, LoadRequest, LoadRequestOptions, Spirc},
-    core::{
-        authentication::Credentials, cache::Cache, config::SessionConfig, session::Session, Error,
-        SpotifyId,
-    },
-    metadata::{Metadata, Playlist, Track},
-    playback::{
-        audio_backend,
-        config::{AudioFormat, PlayerConfig},
-        mixer::{self, MixerConfig},
-        player::Player,
-    },
-};
-use log::LevelFilter;
-use rand::seq::IteratorRandom;
+mod alarm;
+mod auth;
+mod spotify;
+mod state;
+mod web;
 
-const CACHE: &str = ".cache";
-const CACHE_FILES: &str = ".cache/files";
+use librespot::core::Error;
+use log::LevelFilter;
+use state::{AppState, SharedState};
+use std::env;
+use std::io::{self, Write};
+use std::path::PathBuf;
+use std::sync::Arc;
+use tokio::sync::RwLock;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-    let mut rng = rand::rng();
     env_logger::builder()
         .filter_module("librespot", LevelFilter::Info)
         .init();
 
-    let session_config = SessionConfig::default();
-    let player_config = PlayerConfig::default();
-    let audio_format = AudioFormat::default();
-    let connect_config = ConnectConfig::default();
-    let mixer_config = MixerConfig::default();
-    let request_options = LoadRequestOptions::default();
+    // Handle hash-password command
+    if let Some(cmd) = env::args().nth(1) {
+        if cmd == "hash-password" {
+            return handle_hash_password();
+        }
+    }
 
-    let sink_builder = audio_backend::find(None).unwrap();
-    let mixer_builder = mixer::find(None).unwrap();
+    // Get config file path from command line args or use default
+    let config_path = env::args()
+        .nth(1)
+        .unwrap_or_else(|| "alarms.json".to_string());
 
-    let cache = Cache::new(Some(CACHE), Some(CACHE), Some(CACHE_FILES), None)?;
-    let credentials = cache
-        .credentials()
-        .ok_or(Error::unavailable("credentials not cached"))
-        .or_else(|_| {
-            librespot::oauth::OAuthClientBuilder::new(
-                &session_config.client_id,
-                "http://127.0.0.1:8898/login",
-                vec!["streaming"],
-            )
-            .open_in_browser()
-            .build()?
-            .get_access_token()
-            .map(|t| Credentials::with_access_token(t.access_token))
-        })?;
+    // Load alarm configuration
+    let config = match alarm::AlarmConfig::load(&config_path) {
+        Ok(cfg) => cfg,
+        Err(e) => {
+            eprintln!("Error loading alarm config from '{}': {}", config_path, e);
+            eprintln!("Please create an alarms.json file with your alarm configuration.");
+            eprintln!("Example format:");
+            eprintln!(
+                r#"{{
+  "web": {{
+    "enabled": true,
+    "bind_addr": "0.0.0.0",
+    "port": 8080,
+    "password_hash": "run 'cargo run -- hash-password' to generate"
+  }},
+  "alarms": [
+    {{
+      "name": "Weekday Morning Alarm",
+      "time": "07:00",
+      "days": ["Mon", "Tue", "Wed", "Thu", "Fri"],
+      "enabled": true
+    }}
+  ]
+}}"#
+            );
+            std::process::exit(1);
+        }
+    };
 
-    let session = Session::new(session_config, Some(cache));
-    let mixer = mixer_builder(mixer_config)?;
+    // Check if web server is enabled and password is configured
+    if config.web.enabled && config.web.password_hash.is_none() {
+        eprintln!("⚠️  Web server is enabled but no password is configured!");
+        eprintln!("Run 'cargo run -- hash-password' to generate a password hash,");
+        eprintln!("then add it to alarms.json under web.password_hash");
+        std::process::exit(1);
+    }
 
-    let player = Player::new(
-        player_config,
-        session.clone(),
-        mixer.get_soft_volume(),
-        move || sink_builder(None, audio_format),
-    );
+    // Initialize Spotify
+    println!("🔌 Connecting to Spotify...");
+    let (session, spirc, spirc_task) = spotify::init().await?;
 
-    let (spirc, spirc_task) =
-        Spirc::new(connect_config, session.clone(), credentials, player, mixer).await?;
+    // Spawn spirc_task independently (MUST run continuously)
+    tokio::spawn(async move {
+        spirc_task.await;
+    });
 
-    // get playlist
-    let plist_uri = SpotifyId::from_uri("spotify:playlist:2aBMj4vGrpxavecIWQtcc4").unwrap();
-    let plist = Playlist::get(&session, &plist_uri).await.unwrap();
-    // for track_id in plist.tracks() {
-    //     println!("{:?}",track_id);
-    //     let plist_track = Track::get(&session, track_id).await.unwrap();
-    //     println!("track: {} ", plist_track.name);
-    // }
+    println!("✓ Connected to Spotify");
 
-    // these calls can be seen as "queued"
-    spirc.activate()?;
+    // Create shared state
+    let state: SharedState = Arc::new(RwLock::new(AppState {
+        config: config.clone(),
+        config_path: PathBuf::from(&config_path),
+        session: session.clone(),
+        spirc: spirc.clone(),
+        last_alarm_trigger: None,
+    }));
 
-    // spirc.load(LoadRequest::from_tracks(
-    //     plist.tracks().map(|e| e.to_uri().unwrap()).collect(),
-    //     request_options,
-    // ));
+    // Spawn alarm scheduler task
+    println!("\n🎵 Spotify Alarm started!");
+    let scheduler_state = state.clone();
+    tokio::spawn(async move {
+        if let Err(e) = alarm::run_scheduler(scheduler_state).await {
+            eprintln!("❌ Scheduler error: {}", e);
+        }
+    });
 
-    // spirc.load(LoadRequest::from_context_uri(
-    //     format!("spotify:user:{}:collection", session.username()),
-    //     request_options,
-    // ))?;
-    let track = *plist.tracks().choose(&mut rng).unwrap();
-    spirc
-        .load(LoadRequest::from_context_uri(
-            track.to_uri().unwrap(),
-            request_options,
-        ))
-        .unwrap();
-    spirc.play()?;
-
-    // starting the connect device and processing the previously "queued" calls
-    spirc_task.await;
+    // Run web server if enabled
+    if config.web.enabled {
+        let bind_addr = format!("{}:{}", config.web.bind_addr, config.web.port);
+        web::run_server(state, &bind_addr)
+            .await
+            .map_err(|e| Error::unavailable(e.to_string()))?;
+    } else {
+        println!("ℹ️  Web interface is disabled. Press Ctrl+C to stop.");
+        // Keep running if web is disabled
+        tokio::signal::ctrl_c()
+            .await
+            .map_err(|e| Error::unavailable(e.to_string()))?;
+    }
 
     Ok(())
+}
+
+fn handle_hash_password() -> Result<(), Error> {
+    println!("🔐 Password Hash Generator");
+    println!();
+
+    print!("Enter password: ");
+    io::stdout().flush().unwrap();
+
+    let mut password = String::new();
+    io::stdin()
+        .read_line(&mut password)
+        .map_err(|e| Error::unavailable(e.to_string()))?;
+
+    let password = password.trim();
+
+    if password.is_empty() {
+        eprintln!("Error: Password cannot be empty");
+        std::process::exit(1);
+    }
+
+    match auth::hash_password(password) {
+        Ok(hash) => {
+            println!();
+            println!("✓ Password hashed successfully!");
+            println!();
+            println!("Add this to your alarms.json under web.password_hash:");
+            println!("{}", hash);
+            println!();
+            Ok(())
+        }
+        Err(e) => {
+            eprintln!("Error hashing password: {}", e);
+            std::process::exit(1);
+        }
+    }
 }

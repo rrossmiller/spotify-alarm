@@ -6,16 +6,22 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-# librespot = "0.6.0"
-librespot = { git="https://github.com/librespot-org/librespot.git", rev="be37402421167ec3721aa7f6fd1103851475517b"}
+librespot = "0.8"
+# librespot = { git="https://github.com/librespot-org/librespot.git", rev="be37402421167ec3721aa7f6fd1103851475517b"}
 # librespot = { git="https://github.com/librespot-org/librespot.git",branch='dev' }
-env_logger =  { version = "0.11.2", default-features = false, features = ["color", "humantime", "auto-color"] }
-tokio = { version = "1.47.1" }
-rand = '0.9.2'
-chrono = '0.4.41'
-home = "0.5.11"
-futures-util = { version = "0.3.31", default-features = false }
+env_logger =  { version = "0.11.8", default-features = false, features = ["color", "humantime", "auto-color"] }
+tokio = { version = "1.48", features = ["full"] }
+rand = '0.9'
+chrono = '0.4'
+home = "0.5"
+futures-util = { version = "0.3", default-features = false }
 log = "0.4"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+axum = "0.7"
+tower = "0.4"
+tower-http = { version = "0.5", features = ["cors"] }
+argon2 = "0.5"
 
 ## make it SMALL
 # [profile.release]
