@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -31,7 +32,8 @@
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
         }
 
-        h1, h2 {
+        h1,
+        h2 {
             color: #333;
             margin-bottom: 20px;
         }
@@ -44,7 +46,8 @@
             font-size: 20px;
         }
 
-        .login-form, .alarm-form {
+        .login-form,
+        .alarm-form {
             max-width: 400px;
             margin: 0 auto;
         }
@@ -72,7 +75,8 @@
             transition: border-color 0.3s;
         }
 
-        input:focus, select:focus {
+        input:focus,
+        select:focus {
             outline: none;
             border-color: #667eea;
         }
@@ -123,7 +127,7 @@
         }
 
         .hidden {
-            display: none;
+            display: none !important;
         }
 
         .error {
@@ -143,7 +147,8 @@
             border-collapse: collapse;
         }
 
-        th, td {
+        th,
+        td {
             padding: 12px;
             text-align: left;
             border-bottom: 1px solid #e0e0e0;
@@ -274,7 +279,8 @@
                 font-size: 14px;
             }
 
-            th, td {
+            th,
+            td {
                 padding: 8px;
             }
 
@@ -284,6 +290,7 @@
         }
     </style>
 </head>
+
 <body>
     <div class="container">
         <!-- Login Screen -->
@@ -307,7 +314,8 @@
                     <h1>🎵 Spotify Alarm Manager</h1>
                     <div>
                         <button class="btn btn-success btn-small" onclick="testAlarm()">🔊 Test Alarm</button>
-                        <button class="btn btn-secondary btn-small" onclick="logout()" style="margin-left: 8px;">Logout</button>
+                        <button class="btn btn-secondary btn-small" onclick="logout()"
+                            style="margin-left: 8px;">Logout</button>
                     </div>
                 </div>
 
@@ -460,7 +468,7 @@
 
         async function fetchAlarms() {
             const response = await fetch('/api/alarms', {
-                headers: { 'X-Password': password }
+                headers: {'X-Password': password}
             });
 
             if (!response.ok) throw new Error('Failed to fetch alarms');
@@ -471,7 +479,7 @@
 
         async function fetchStatus() {
             const response = await fetch('/api/status', {
-                headers: { 'X-Password': password }
+                headers: {'X-Password': password}
             });
 
             if (!response.ok) return;
@@ -531,7 +539,7 @@
         async function editAlarm(index) {
             editingIndex = index;
             const response = await fetch(`/api/alarms/${index}`, {
-                headers: { 'X-Password': password }
+                headers: {'X-Password': password}
             });
 
             if (!response.ok) {
@@ -567,7 +575,7 @@
                 return;
             }
 
-            const alarm = { name, time, days, enabled };
+            const alarm = {name, time, days, enabled};
 
             try {
                 let response;
@@ -608,7 +616,7 @@
             try {
                 const response = await fetch(`/api/alarms/${index}/toggle`, {
                     method: 'POST',
-                    headers: { 'X-Password': password }
+                    headers: {'X-Password': password}
                 });
 
                 if (!response.ok) throw new Error('Failed to toggle alarm');
@@ -625,7 +633,7 @@
             try {
                 const response = await fetch(`/api/alarms/${index}`, {
                     method: 'DELETE',
-                    headers: { 'X-Password': password }
+                    headers: {'X-Password': password}
                 });
 
                 if (!response.ok) throw new Error('Failed to delete alarm');
@@ -640,7 +648,7 @@
             try {
                 const response = await fetch('/api/test-alarm', {
                     method: 'POST',
-                    headers: { 'X-Password': password }
+                    headers: {'X-Password': password}
                 });
 
                 if (!response.ok) {
@@ -660,4 +668,5 @@
         });
     </script>
 </body>
+
 </html>
