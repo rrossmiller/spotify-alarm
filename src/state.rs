@@ -1,16 +1,11 @@
 use crate::alarm::{Alarm, AlarmConfig};
 use chrono::{DateTime, Local};
-use librespot::connect::Spirc;
-use librespot::core::session::Session;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tokio::sync::Mutex;
 
 pub struct AppState {
     pub config: AlarmConfig,
     pub config_path: PathBuf,
-    pub session: Session,
-    pub spirc: Arc<Mutex<Spirc>>,
     pub last_alarm_trigger: Option<(String, DateTime<Local>)>,
 }
 
@@ -24,12 +19,14 @@ impl AppState {
     }
 
     /// Reload configuration from disk
+    #[allow(dead_code)]
     pub fn load_config(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         self.config = AlarmConfig::load(&self.config_path)?;
         Ok(())
     }
 
     /// Get all alarms
+    #[allow(dead_code)]
     pub fn get_alarms(&self) -> Vec<Alarm> {
         self.config.alarms.clone()
     }

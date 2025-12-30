@@ -17,7 +17,10 @@ pub async fn run_server(
         // Frontend
         .route("/", get(frontend::serve_frontend))
         // API routes
-        .route("/api/alarms", get(routes::list_alarms).post(routes::create_alarm))
+        .route(
+            "/api/alarms",
+            get(routes::list_alarms).post(routes::create_alarm),
+        )
         .route(
             "/api/alarms/:index",
             get(routes::get_alarm)
@@ -26,7 +29,7 @@ pub async fn run_server(
         )
         .route("/api/alarms/:index/toggle", post(routes::toggle_alarm))
         .route("/api/status", get(routes::get_status))
-        .route("/api/test-alarm", post(routes::test_alarm))
+        // .route("/api/test-alarm", post(routes::test_alarm))
         // Add authentication middleware to all routes except the root
         .layer(axum::middleware::from_fn_with_state(
             state.clone(),

@@ -1,6 +1,6 @@
 use std::future::Future;
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use tokio::{join, sync::Mutex};
 
 use librespot::{
     connect::{ConnectConfig, LoadRequest, LoadRequestOptions, Spirc},
@@ -14,14 +14,22 @@ use librespot::{
         audio_backend,
         config::{AudioFormat, PlayerConfig},
         mixer::{self, MixerConfig},
-        player::Player,
+        player::{Player, PlayerEvent},
     },
 };
 use rand::seq::IteratorRandom;
 
 const CACHE: &str = ".cache";
 const CACHE_FILES: &str = ".cache/files";
-pub async fn init() -> Result<(Session, Arc<Mutex<Spirc>>, impl Future<Output = ()>), Error> {
+pub async fn init() -> Result<
+    (
+        Session,
+        Arc<Mutex<Spirc>>,
+        impl Future<Output = ()>,
+        Arc<Player>,
+    ),
+    Error,
+> {
     let session_config = SessionConfig::default();
     let player_config = PlayerConfig::default();
     let audio_format = AudioFormat::default();
@@ -57,17 +65,20 @@ pub async fn init() -> Result<(Session, Arc<Mutex<Spirc>>, impl Future<Output = 
         move || sink_builder(None, audio_format),
     );
 
-    let (spirc, spirc_task) =
-        Spirc::new(connect_config, session.clone(), credentials, player, mixer).await?;
+    let (spirc, spirc_task) = Spirc::new(
+        connect_config,
+        session.clone(),
+        credentials,
+        player.clone(),
+        mixer,
+    )
+    .await?;
 
-    return Ok((session, Arc::new(Mutex::new(spirc)), spirc_task));
+    return Ok((session, Arc::new(Mutex::new(spirc)), spirc_task, player));
 }
 
-pub async fn play(
-    session: Session,
-    spirc: Arc<Mutex<Spirc>>,
-) -> Result<(), Error> {
-    println!("playing alarm!");
+pub async fn play() -> Result<(), Error> {
+    let (session, spirc, spirc_task, player) = init().await?;
 
     let request_options = LoadRequestOptions::default();
 
@@ -93,14 +104,35 @@ pub async fn play(
     // set volume to max
     spirc_guard.set_volume(u16::MAX).unwrap();
 
-    spirc_guard.load(LoadRequest::from_context_uri(
-        track_uri,
-        request_options,
-    ))?;
+    spirc_guard.load(LoadRequest::from_context_uri(track_uri, request_options))?;
     spirc_guard.play()?;
 
     // Release the lock immediately after issuing commands
     drop(spirc_guard);
+
+    join!(
+        // play the song
+        spirc_task,
+        // disconnect/return when the connect device changes
+        async {
+            let mut events = player.get_player_event_channel();
+            while let Some(event) = events.recv().await {
+                println!("EVENT: {:?}", event);
+                match event {
+                    // end the alarm if the track stops
+                    // the app will start looking for the next alarm
+                    PlayerEvent::EndOfTrack { .. }
+                    | PlayerEvent::Paused { .. }
+                    | PlayerEvent::Stopped { .. } => {
+                        spirc.lock().await.shutdown().unwrap();
+                        break;
+                    }
+                    _ => {}
+                }
+            }
+            println!("Alarm Done...");
+        }
+    );
 
     Ok(())
 }

@@ -68,32 +68,33 @@ async fn main() -> Result<(), Error> {
         std::process::exit(1);
     }
 
-    // Initialize Spotify
-    println!("🔌 Connecting to Spotify...");
-    let (session, spirc, spirc_task) = spotify::init().await?;
-
-    // Spawn spirc_task independently (MUST run continuously)
-    tokio::spawn(async move {
-        spirc_task.await;
-    });
-
-    println!("✓ Connected to Spotify");
-
     // Create shared state
     let state: SharedState = Arc::new(RwLock::new(AppState {
         config: config.clone(),
         config_path: PathBuf::from(&config_path),
-        session: session.clone(),
-        spirc: spirc.clone(),
+        // session: session.clone(),
+        // spirc: spirc.clone(),
         last_alarm_trigger: None,
     }));
 
     // Spawn alarm scheduler task
-    println!("\n🎵 Spotify Alarm started!");
+    println!("\n🎵 Spotify Alarm started");
     let scheduler_state = state.clone();
     tokio::spawn(async move {
-        if let Err(e) = alarm::run_scheduler(scheduler_state).await {
-            eprintln!("❌ Scheduler error: {}", e);
+        loop {
+            match alarm::run_scheduler(scheduler_state.clone()).await {
+                Ok(_) => {
+                    // Scheduler should never normally exit, but if it does, restart it
+                    eprintln!(
+                        "⚠️  Alarm scheduler exited unexpectedly, restarting in 5 seconds..."
+                    );
+                }
+                Err(e) => {
+                    eprintln!("❌ Scheduler error: {}", e);
+                    eprintln!("   Restarting scheduler in 5 seconds...");
+                }
+            }
+            tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
         }
     });
 

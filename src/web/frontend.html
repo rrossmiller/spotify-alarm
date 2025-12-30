@@ -313,7 +313,7 @@
                 <div class="header-actions">
                     <h1>🎵 Spotify Alarm Manager</h1>
                     <div>
-                        <button class="btn btn-success btn-small" onclick="testAlarm()">🔊 Test Alarm</button>
+                        <!-- <button class="btn btn-success btn-small" onclick="testAlarm()">🔊 Test Alarm</button> -->
                         <button class="btn btn-secondary btn-small" onclick="logout()"
                             style="margin-left: 8px;">Logout</button>
                     </div>
@@ -641,24 +641,6 @@
                 await fetchAlarms();
             } catch (error) {
                 alert('Failed to delete alarm: ' + error.message);
-            }
-        }
-
-        async function testAlarm() {
-            try {
-                const response = await fetch('/api/test-alarm', {
-                    method: 'POST',
-                    headers: {'X-Password': password}
-                });
-
-                if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.error || 'Test failed');
-                }
-
-                alert('Test alarm triggered! Music should start playing.');
-            } catch (error) {
-                alert('Failed to test alarm: ' + error.message);
             }
         }
 

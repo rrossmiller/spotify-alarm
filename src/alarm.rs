@@ -78,9 +78,9 @@ impl Alarm {
         }
 
         let weekday_str = format!("{:?}", weekday); // "Mon", "Tue", etc.
-        self.days
-            .iter()
-            .any(|d| d.eq_ignore_ascii_case(&weekday_str) || d.eq_ignore_ascii_case(&weekday_str[..3]))
+        self.days.iter().any(|d| {
+            d.eq_ignore_ascii_case(&weekday_str) || d.eq_ignore_ascii_case(&weekday_str[..3])
+        })
     }
 }
 
@@ -101,6 +101,7 @@ impl AlarmConfig {
 }
 
 /// Calculate seconds until the next occurrence of the given time
+#[allow(dead_code)]
 fn seconds_until_time(target_time: NaiveTime) -> u64 {
     let now = Local::now();
     let today = now.date_naive();
@@ -134,7 +135,10 @@ pub async fn run_scheduler(
 
         for alarm in &state_guard.config.alarms {
             if alarm.enabled {
-                println!("  - {}: {} (days: {:?})", alarm.name, alarm.time, alarm.days);
+                println!(
+                    "  - {}: {} (days: {:?})",
+                    alarm.name, alarm.time, alarm.days
+                );
             } else {
                 println!("  - {}: {} [DISABLED]", alarm.name, alarm.time);
             }
@@ -142,7 +146,7 @@ pub async fn run_scheduler(
     }
 
     // Keep track of the last minute we checked to avoid duplicate triggers
-    let mut last_checked_minute: Option<(u32, u32)> = None;
+    let mut last_played_hour_minute: Option<(u32, u32)> = None;
 
     loop {
         let now = Local::now();
@@ -151,21 +155,16 @@ pub async fn run_scheduler(
         let current_hour_minute = (current_time.hour(), current_time.minute());
 
         // Only check alarms once per minute
-        if last_checked_minute == Some(current_hour_minute) {
-            sleep(Duration::from_secs(10)).await;
+        if last_played_hour_minute == Some(current_hour_minute) {
+            sleep(Duration::from_secs(1)).await;
             continue;
         }
-
-        last_checked_minute = Some(current_hour_minute);
+        println!("checking {}", current_time);
 
         // Read current alarms from shared state
-        let (alarms, session, spirc) = {
+        let alarms = {
             let state_guard = state.read().await;
-            (
-                state_guard.config.alarms.clone(),
-                state_guard.session.clone(),
-                state_guard.spirc.clone(),
-            )
+            state_guard.config.alarms.clone()
         };
 
         for alarm in &alarms {
@@ -195,25 +194,30 @@ pub async fn run_scheduler(
                 println!("\n🔔 Alarm triggered: {} at {}", alarm.name, alarm.time);
 
                 // Play the alarm (spirc is Arc<Mutex<>> now, so it's not consumed)
-                match crate::spotify::play(session.clone(), spirc.clone()).await {
+                match crate::spotify::play().await {
                     Ok(_) => {
-                        println!("✓ Alarm '{}' played successfully", alarm.name);
+                        println!(
+                            "✓ Alarm '{}' played successfully... Will start checking for the next alarm at the start of the next minute",
+                            alarm.name
+                        );
                         // Update last trigger time in state
-                        let mut state_guard = state.write().await;
-                        state_guard.last_alarm_trigger = Some((alarm.name.clone(), now));
+                        if let Ok(mut state_guard) = state.try_write() {
+                            state_guard.last_alarm_trigger = Some((alarm.name.clone(), now));
+                        }
                     }
-                    Err(e) => eprintln!("✗ Error playing alarm '{}': {}", alarm.name, e),
+                    Err(e) => {
+                        eprintln!("✗ Error playing alarm '{}': {}", alarm.name, e);
+                        eprintln!("   Scheduler will continue running for next alarm");
+                        eprintln!("   If this persists, you may need to restart the program");
+                    }
                 }
 
-                // Don't return - keep running to handle future alarms!
-                // Sleep for 61 seconds to avoid re-triggering in the same minute
-                sleep(Duration::from_secs(61)).await;
-                last_checked_minute = None; // Reset to allow next alarm to trigger
+                last_played_hour_minute = Some((current_time.hour(), current_time.minute()));
                 break; // Break inner loop but continue outer loop
             }
         }
 
-        // Check every 10 seconds
-        sleep(Duration::from_secs(10)).await;
+        // Check every 1 second
+        sleep(Duration::from_secs(1)).await;
     }
 }

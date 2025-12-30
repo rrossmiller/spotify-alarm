@@ -50,10 +50,7 @@ pub async fn create_alarm(
 ) -> Result<(StatusCode, Json<Alarm>), (StatusCode, Json<ErrorResponse>)> {
     // Validate alarm time format
     if let Err(e) = alarm.parse_time() {
-        return Err((
-            StatusCode::BAD_REQUEST,
-            Json(ErrorResponse { error: e }),
-        ));
+        return Err((StatusCode::BAD_REQUEST, Json(ErrorResponse { error: e })));
     }
 
     let mut state_guard = state.write().await;
@@ -79,19 +76,13 @@ pub async fn update_alarm(
 ) -> Result<Json<Alarm>, (StatusCode, Json<ErrorResponse>)> {
     // Validate alarm time format
     if let Err(e) = alarm.parse_time() {
-        return Err((
-            StatusCode::BAD_REQUEST,
-            Json(ErrorResponse { error: e }),
-        ));
+        return Err((StatusCode::BAD_REQUEST, Json(ErrorResponse { error: e })));
     }
 
     let mut state_guard = state.write().await;
 
     if let Err(e) = state_guard.update_alarm(index, alarm.clone()) {
-        return Err((
-            StatusCode::NOT_FOUND,
-            Json(ErrorResponse { error: e }),
-        ));
+        return Err((StatusCode::NOT_FOUND, Json(ErrorResponse { error: e })));
     }
 
     if let Err(e) = state_guard.save_config() {
@@ -114,10 +105,7 @@ pub async fn delete_alarm(
     let mut state_guard = state.write().await;
 
     if let Err(e) = state_guard.delete_alarm(index) {
-        return Err((
-            StatusCode::NOT_FOUND,
-            Json(ErrorResponse { error: e }),
-        ));
+        return Err((StatusCode::NOT_FOUND, Json(ErrorResponse { error: e })));
     }
 
     if let Err(e) = state_guard.save_config() {
@@ -142,10 +130,7 @@ pub async fn toggle_alarm(
     let alarm = match state_guard.toggle_alarm(index) {
         Ok(alarm) => alarm,
         Err(e) => {
-            return Err((
-                StatusCode::NOT_FOUND,
-                Json(ErrorResponse { error: e }),
-            ));
+            return Err((StatusCode::NOT_FOUND, Json(ErrorResponse { error: e })));
         }
     };
 
@@ -169,26 +154,27 @@ pub async fn get_status(State(state): State<SharedState>) -> Json<SystemStatus> 
     let status = SystemStatus {
         alarm_count: alarms.len(),
         enabled_count: alarms.iter().filter(|a| a.enabled).count(),
-        last_trigger: state_guard.last_alarm_trigger.as_ref().map(|(name, time)| {
-            (name.clone(), time.format("%Y-%m-%d %H:%M:%S").to_string())
-        }),
+        last_trigger: state_guard
+            .last_alarm_trigger
+            .as_ref()
+            .map(|(name, time)| (name.clone(), time.format("%Y-%m-%d %H:%M:%S").to_string())),
     };
 
     Json(status)
 }
 
-/// POST /api/test-alarm - Trigger test playback
-pub async fn test_alarm(State(state): State<SharedState>) -> StatusCode {
-    let (session, spirc) = {
-        let state_guard = state.read().await;
-        (state_guard.session.clone(), state_guard.spirc.clone())
-    };
-
-    match crate::spotify::play(session, spirc).await {
-        Ok(_) => StatusCode::OK,
-        Err(e) => {
-            eprintln!("Test alarm playback failed: {}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        }
-    }
-}
+// /// POST /api/test-alarm - Trigger test playback
+// pub async fn test_alarm(State(state): State<SharedState>) -> StatusCode {
+//     let (session, spirc) = {
+//         let state_guard = state.read().await;
+//         (state_guard.session.clone(), state_guard.spirc.clone())
+//     };
+//
+//     match crate::spotify::play(session, spirc).await {
+//         Ok(_) => StatusCode::OK,
+//         Err(e) => {
+//             eprintln!("Test alarm playback failed: {}", e);
+//             StatusCode::INTERNAL_SERVER_ERROR
+//         }
+//     }
+// }
