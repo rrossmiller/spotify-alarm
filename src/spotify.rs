@@ -74,6 +74,7 @@ pub async fn init() -> Result<
     )
     .await?;
 
+    println!("✅ Connected to Spotify");
     return Ok((session, Arc::new(Mutex::new(spirc)), spirc_task, player));
 }
 
