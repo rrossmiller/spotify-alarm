@@ -190,7 +190,7 @@ pub async fn run_scheduler(
             let hour_match = current_time.hour() == alarm_time.hour();
             let minute_match = current_time.minute() == alarm_time.minute();
 
-            if hour_match && minute_match {
+            if true || hour_match && minute_match {
                 println!("\n🔔 Alarm triggered: {} at {}", alarm.name, alarm.time);
 
                 // Play the alarm (spirc is Arc<Mutex<>> now, so it's not consumed)
