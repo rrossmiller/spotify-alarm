@@ -21,7 +21,7 @@ use rand::seq::IteratorRandom;
 
 const CACHE: &str = ".cache";
 const CACHE_FILES: &str = ".cache/files";
-pub async fn init() -> Result<
+pub async fn init(audio_device: Option<String>) -> Result<
     (
         Session,
         Arc<Mutex<Spirc>>,
@@ -36,8 +36,14 @@ pub async fn init() -> Result<
     let connect_config = ConnectConfig::default();
     let mixer_config = MixerConfig::default();
 
-    let sink_builder = audio_backend::find(None).unwrap();
-    let mixer_builder = mixer::find(None).unwrap();
+    println!("🔊 Using audio device: {:?}", audio_device.as_ref().unwrap_or(&"default".to_string()));
+    let sink_builder = audio_backend::find(audio_device.clone())
+        .ok_or_else(|| Error::unavailable(format!(
+            "Audio backend not found for device: {:?}. Run 'aplay -L' to list available devices.",
+            audio_device
+        )))?;
+    let mixer_builder = mixer::find(audio_device.clone())
+        .ok_or_else(|| Error::unavailable("Mixer not found"))?;
 
     let cache = Cache::new(Some(CACHE), Some(CACHE), Some(CACHE_FILES), None)?;
     let credentials = cache
@@ -78,8 +84,8 @@ pub async fn init() -> Result<
     return Ok((session, Arc::new(Mutex::new(spirc)), spirc_task, player));
 }
 
-pub async fn play() -> Result<(), Error> {
-    let (session, spirc, spirc_task, player) = init().await?;
+pub async fn play(audio_device: Option<String>) -> Result<(), Error> {
+    let (session, spirc, spirc_task, player) = init(audio_device).await?;
 
     let request_options = LoadRequestOptions::default();
 

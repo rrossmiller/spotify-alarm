@@ -8,6 +8,8 @@ pub struct AlarmConfig {
     pub alarms: Vec<Alarm>,
     #[serde(default)]
     pub web: WebConfig,
+    #[serde(default)]
+    pub spotify: SpotifyConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -19,6 +21,26 @@ pub struct WebConfig {
     #[serde(default = "default_port")]
     pub port: u16,
     pub password_hash: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SpotifyConfig {
+    /// ALSA device name (e.g., "default", "hw:0,0", "hw:Headphones")
+    /// Use "aplay -L" to list available devices
+    #[serde(default = "default_audio_device")]
+    pub audio_device: String,
+}
+
+impl Default for SpotifyConfig {
+    fn default() -> Self {
+        Self {
+            audio_device: default_audio_device(),
+        }
+    }
+}
+
+fn default_audio_device() -> String {
+    "default".to_string()
 }
 
 fn default_web_enabled() -> bool {
@@ -161,10 +183,13 @@ pub async fn run_scheduler(
         }
         println!("checking {}", current_time);
 
-        // Read current alarms from shared state
-        let alarms = {
+        // Read current alarms and audio device from shared state
+        let (alarms, audio_device) = {
             let state_guard = state.read().await;
-            state_guard.config.alarms.clone()
+            (
+                state_guard.config.alarms.clone(),
+                Some(state_guard.config.spotify.audio_device.clone()),
+            )
         };
 
         for alarm in &alarms {
@@ -194,7 +219,7 @@ pub async fn run_scheduler(
                 println!("\n🔔 Alarm triggered: {} at {}", alarm.name, alarm.time);
 
                 // Play the alarm (spirc is Arc<Mutex<>> now, so it's not consumed)
-                match crate::spotify::play().await {
+                match crate::spotify::play(audio_device.clone()).await {
                     Ok(_) => {
                         println!(
                             "✓ Alarm '{}' played successfully... Will start checking for the next alarm at the start of the next minute",
