@@ -36,8 +36,7 @@ pub async fn init() -> Result<
     let connect_config = ConnectConfig::default();
     let mixer_config = MixerConfig::default();
 
-    // let sink_builder = audio_backend::find(Some("alsa".to_string())).unwrap();
-    let sink_builder = audio_backend::find(Some("default:CARD=Headphones".to_string())).unwrap();
+    let sink_builder = audio_backend::find(Some("alsa".to_string())).unwrap();
     // let sink_builder = audio_backend::find(None).unwrap();
     let mixer_builder = mixer::find(None).unwrap();
 
