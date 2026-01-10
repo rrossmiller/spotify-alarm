@@ -21,7 +21,9 @@ use rand::seq::IteratorRandom;
 
 const CACHE: &str = ".cache";
 const CACHE_FILES: &str = ".cache/files";
-pub async fn init(audio_device: Option<String>) -> Result<
+pub async fn init(
+    audio_device: Option<String>,
+) -> Result<
     (
         Session,
         Arc<Mutex<Spirc>>,
@@ -36,14 +38,20 @@ pub async fn init(audio_device: Option<String>) -> Result<
     let connect_config = ConnectConfig::default();
     let mixer_config = MixerConfig::default();
 
-    println!("🔊 Using audio device: {:?}", audio_device.as_ref().unwrap_or(&"default".to_string()));
-    let sink_builder = audio_backend::find(audio_device.clone())
-        .ok_or_else(|| Error::unavailable(format!(
+    println!(
+        "🔊 Using audio device: {:?}",
+        audio_device.as_ref().unwrap_or(&"default".to_string())
+    );
+    let sink_builder = audio_backend::find(audio_device.clone()).ok_or_else(|| {
+        Error::unavailable(format!(
             "Audio backend not found for device: {:?}. Run 'aplay -L' to list available devices.",
             audio_device
-        )))?;
-    let mixer_builder = mixer::find(audio_device.clone())
-        .ok_or_else(|| Error::unavailable("Mixer not found"))?;
+        ))
+    })?;
+    let audio_device = audio_device.expect("Issue with audio device");
+    let audio_device = Some(audio_device.as_str());
+    let mixer_builder =
+        mixer::find(audio_device.clone()).ok_or_else(|| Error::unavailable("Mixer not found"))?;
 
     let cache = Cache::new(Some(CACHE), Some(CACHE), Some(CACHE_FILES), None)?;
     let credentials = cache
