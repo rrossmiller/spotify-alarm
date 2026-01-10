@@ -52,20 +52,19 @@ pub async fn init(
             audio_backend::find(None).ok_or_else(|| {
                 Error::unavailable(
                     "No audio backend available. Make sure ALSA is properly configured.\n\
-                     Try: aplay -L to list devices, or install libasound2-dev"
+                     Try: aplay -L to list devices, or install libasound2-dev",
                 )
             })?
         }
     };
 
+    let audio_device = Some(audio_device.unwrap().as_str());
     let mixer_builder = match mixer::find(audio_device.clone()) {
         Some(builder) => builder,
         None => {
             eprintln!("⚠️  Mixer not found for device: {:?}", audio_device);
             eprintln!("   Trying system default mixer instead...");
-            mixer::find(None).ok_or_else(|| {
-                Error::unavailable("No mixer available")
-            })?
+            mixer::find(None).ok_or_else(|| Error::unavailable("No mixer available"))?
         }
     };
 
