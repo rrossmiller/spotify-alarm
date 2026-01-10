@@ -58,8 +58,9 @@ pub async fn init(
         }
     };
 
-    let audio_device = audio_device.unwrap().as_str();
-    let mixer_builder = match mixer::find(Some(audio_device.clone())) {
+    let audio_device = audio_device.expect("Issue with audio device");
+    let audio_device = Some(audio_device.as_str());
+    let mixer_builder = match mixer::find(audio_device.clone()) {
         Some(builder) => builder,
         None => {
             eprintln!("⚠️  Mixer not found for device: {:?}", audio_device);
