@@ -37,8 +37,9 @@ pub async fn init() -> Result<
     let mixer_config = MixerConfig::default();
 
     let sink_builder = audio_backend::find(Some("alsa".to_string())).unwrap();
+    let mixer_builder = mixer::find(Some("plughw:CARD=Headphones,DEV=0")).unwrap();
     // let sink_builder = audio_backend::find(None).unwrap();
-    let mixer_builder = mixer::find(None).unwrap();
+    // let mixer_builder = mixer::find(None).unwrap();
 
     let cache = Cache::new(Some(CACHE), Some(CACHE), Some(CACHE_FILES), None)?;
     let credentials = cache
