@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-librespot = "0.8"
+librespot = {version="0.8", features=["alsa-backend"]}
 # librespot = { git="https://github.com/librespot-org/librespot.git", rev="be37402421167ec3721aa7f6fd1103851475517b"}
 # librespot = { git="https://github.com/librespot-org/librespot.git",branch='dev' }
 env_logger =  { version = "0.11.8", default-features = false, features = ["color", "humantime", "auto-color"] }
